@@ -9,10 +9,10 @@ env:
 phases:
   install:
     commands:
-      # Rimosso i due punti dal testo
       - echo "START INSTALLATION PHASE"
-      # Semplificata installazione: niente if complessi, niente variabili con due punti
-      - yum install -y unzip
+      # FIX: Usiamo apt-get (Ubuntu) invece di yum
+      - apt-get update && apt-get install -y unzip curl
+      # Scarica Terraform
       - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
       - unzip -o /tmp/terraform.zip -d /usr/local/bin
       - terraform -version
@@ -26,7 +26,7 @@ phases:
       - TARGET_ENV=""
       - WORKDIR=""
       
-      # Logica DEV (protetta da apici, niente due punti nei messaggi)
+      # Logica DEV
       - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
       # Logica PROD
