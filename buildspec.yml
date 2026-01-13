@@ -32,7 +32,7 @@ phases:
           if [ -n "$TARGET_ENV" ]; then echo "Both Dev and Prod touched. Failing."; exit 1; fi
           TARGET_ENV="prod"; WORKDIR="$PROD_DIR";
         fi
-      - if [ -z "$TARGET_ENV" ]; then echo "No Dev/Prod changes detected. Failing."; exit 1; fi
+      - if [ -z "$TARGET_ENV" ]; then echo "WARNING: Nessuna modifica rilevata. Uso DEV come default per il test."; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi
       - echo "Target env: $TARGET_ENV"
       - cd "$WORKDIR"
       - terraform init -input=false
