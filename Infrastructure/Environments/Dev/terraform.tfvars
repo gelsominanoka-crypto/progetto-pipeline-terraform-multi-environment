@@ -1,4 +1,4 @@
-aws_region    = "es-east-1"       
+aws_region    = "us-east-1"       
 environment   = "dev"
 allowed_cidr  = "0.0.0.0/0"        
 instance_type = "t3.micro"         
