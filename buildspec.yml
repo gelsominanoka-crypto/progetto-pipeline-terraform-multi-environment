@@ -1,0 +1,56 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    DEV_DIR: "Infrastructure/Environments/Dev"
+    PROD_DIR: "Infrastructure/Environments/Prod"
+    PIPELINE_ACTION: "plan"  # override da CodePipeline nello stage Apply
+
+phases:
+  install:
+    commands:
+      - echo "Setup Terraform if missing"
+      - if ! command -v terraform >/dev/null; then
+          sudo yum install -y unzip >/dev/null 2>&1 || true;
+          curl -sLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION:-1.9.5}/terraform_${TF_VERSION:-1.9.5}_linux_amd64.zip";
+          unzip -o /tmp/terraform.zip -d /usr/local/bin;
+        fi
+      - terraform -version
+      - git --version
+
+  pre_build:
+    commands:
+      - echo "Detecting changed paths..."
+      - git fetch --depth=2 origin main || true
+      - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+      - echo "$CHANGED"
+      - TARGET_ENV=""
+      - WORKDIR=""
+      - if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi
+      - if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then
+          if [ -n "$TARGET_ENV" ]; then echo "Both Dev and Prod touched. Failing."; exit 1; fi
+          TARGET_ENV="prod"; WORKDIR="$PROD_DIR";
+        fi
+      - if [ -z "$TARGET_ENV" ]; then echo "No Dev/Prod changes detected. Failing."; exit 1; fi
+      - echo "Target env: $TARGET_ENV"
+      - cd "$WORKDIR"
+      - terraform init -input=false
+      - terraform validate
+
+  build:
+    commands:
+      - echo "PIPELINE_ACTION=$PIPELINE_ACTION"
+      - if [ "$PIPELINE_ACTION" = "plan" ]; then
+          terraform plan -input=false -out=tfplan;
+        else
+          echo "Skipping plan in apply stage";
+        fi
+
+  post_build:
+    commands:
+      - if [ "$PIPELINE_ACTION" = "apply" ]; then
+          terraform apply -input=false -auto-approve tfplan || terraform apply -input=false -auto-approve;
+        else
+          echo "Apply not requested in this stage.";
+        fi
