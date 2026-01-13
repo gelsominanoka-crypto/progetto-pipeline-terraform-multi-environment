@@ -11,9 +11,10 @@ phases:
   install:
     commands:
       - echo "Setup Terraform..."
-      - if ! command -v terraform >/dev/null; then sudo yum install -y unzip >/dev/null 2>&1 || true; curl -sLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION:-1.9.5}/terraform_${TF_VERSION:-1.9.5}_linux_amd64.zip"; unzip -o /tmp/terraform.zip -d /usr/local/bin; fi
+      # Ho messo gli apici all'inizio e alla fine di questo blocco lungo
+      - 'if ! command -v terraform >/dev/null; then sudo yum install -y unzip >/dev/null 2>&1 || true; curl -sLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION:-1.9.5}/terraform_${TF_VERSION:-1.9.5}_linux_amd64.zip"; unzip -o /tmp/terraform.zip -d /usr/local/bin; fi'
       - terraform -version
-      
+
   pre_build:
     commands:
       - echo "Detecting changed paths..."
@@ -22,9 +23,12 @@ phases:
       - echo "$CHANGED"
       - TARGET_ENV=""
       - WORKDIR=""
-      - if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi
-      - if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "Conflict. Failing."; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi
-      - if [ -z "$TARGET_ENV" ]; then echo "WARNING: No changes detected. Forcing DEV for testing."; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi
+      
+      # QUESTE SONO LE RIGHE CHE DAVANO ERRORE. ORA SONO PROTETTE DA APICI SINGOLI '...'
+      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "Conflict. Failing."; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
+      - 'if [ -z "$TARGET_ENV" ]; then echo "WARNING: No changes detected. Forcing DEV for testing."; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      
       - echo "Target env -> $TARGET_ENV"
       - cd "$WORKDIR"
       - terraform init -input=false
@@ -33,8 +37,10 @@ phases:
   build:
     commands:
       - echo "Action -> $PIPELINE_ACTION"
-      - if [ "$PIPELINE_ACTION" = "plan" ]; then terraform plan -input=false -out=tfplan; else echo "Skipping plan"; fi
+      # Anche qui proteggiamo con apici per sicurezza
+      - 'if [ "$PIPELINE_ACTION" = "plan" ]; then terraform plan -input=false -out=tfplan; else echo "Skipping plan"; fi'
 
   post_build:
     commands:
-      - if [ "$PIPELINE_ACTION" = "apply" ]; then terraform apply -input=false -auto-approve tfplan || terraform apply -input=false -auto-approve; else echo "Apply not requested"; fi
+      # Protezione con apici
+      - 'if [ "$PIPELINE_ACTION" = "apply" ]; then terraform apply -input=false -auto-approve tfplan || terraform apply -input=false -auto-approve; else echo "Apply not requested"; fi'
