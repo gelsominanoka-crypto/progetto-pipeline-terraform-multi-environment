@@ -19,9 +19,10 @@ phases:
   pre_build:
     commands:
       - echo "CHECKING CHANGED FILES"
-      - git fetch --depth=2 origin main || true
+      # ORA FUNZIONERA' PERCHE' ABBIAMO ABILITATO FULL CLONE
       - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
-      - echo "$CHANGED"
+      - echo "Files changed: $CHANGED"
+      
       - TARGET_ENV=""
       - WORKDIR=""
       
@@ -32,8 +33,9 @@ phases:
       - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
       
       # Default
-      - 'if [ -z "$TARGET_ENV" ]; then echo "USING DEV DEFAULT"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      - 'if [ -z "$TARGET_ENV" ]; then echo "NO SPECIFIC ENV DETECTED - USING DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
+      - echo "Selected Target is $TARGET_ENV"
       - cd "$WORKDIR"
       - echo "INIT AND VALIDATE"
       - terraform init -input=false
@@ -41,13 +43,8 @@ phases:
 
   build:
     commands:
-      # HO RIMOSSO I DUE PUNTI DA QUI SOTTO
       - echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
-      
-      # Logica PLAN
       - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
-      
-      # Logica APPLY
       - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
 
 artifacts:
