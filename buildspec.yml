@@ -5,8 +5,7 @@ env:
   variables:
     DEV_DIR: "Infrastructure/Environments/Dev"
     PROD_DIR: "Infrastructure/Environments/Prod"
-    # Questa variabile decide cosa fare. Default = plan
-    TF_COMMAND: "plan" 
+    TF_COMMAND: "plan"
 
 phases:
   install:
@@ -26,25 +25,29 @@ phases:
       - TARGET_ENV=""
       - WORKDIR=""
       
-      # Rilevamento DEV
+      # Logica DEV
       - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
-      # Rilevamento PROD
+      
+      # Logica PROD
       - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
-      # Fallback a DEV
+      
+      # Default
       - 'if [ -z "$TARGET_ENV" ]; then echo "USING DEV DEFAULT"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
       - cd "$WORKDIR"
+      - echo "INIT AND VALIDATE"
       - terraform init -input=false
       - terraform validate
 
   build:
     commands:
-      - echo "EXECUTING TERRAFORM COMMAND: $TF_COMMAND"
+      # HO RIMOSSO I DUE PUNTI DA QUI SOTTO
+      - echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
       
-      # SE E' PLAN: Crea il piano
+      # Logica PLAN
       - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
       
-      # SE E' APPLY: Applica il piano esistente
+      # Logica APPLY
       - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
 
 artifacts:
