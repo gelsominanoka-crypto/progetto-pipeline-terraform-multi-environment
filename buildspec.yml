@@ -9,35 +9,47 @@ env:
 phases:
   install:
     commands:
-      - echo "=== FASE 1: INSTALLAZIONE ==="
-      - 'if ! command -v terraform >/dev/null; then sudo yum install -y unzip >/dev/null 2>&1 || true; curl -sLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION:-1.9.5}/terraform_${TF_VERSION:-1.9.5}_linux_amd64.zip"; unzip -o /tmp/terraform.zip -d /usr/local/bin; fi'
+      # Rimosso i due punti dal testo
+      - echo "START INSTALLATION PHASE"
+      # Semplificata installazione: niente if complessi, niente variabili con due punti
+      - yum install -y unzip
+      - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
+      - unzip -o /tmp/terraform.zip -d /usr/local/bin
       - terraform -version
 
   pre_build:
     commands:
-      - echo "=== FASE 2: RILEVAMENTO AMBIENTE ==="
+      - echo "CHECKING CHANGED FILES"
       - git fetch --depth=2 origin main || true
-      - 'CHANGED=$(git diff --name-only HEAD~1 HEAD || true)'
+      - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
       - echo "$CHANGED"
       - TARGET_ENV=""
       - WORKDIR=""
+      
+      # Logica DEV (protetta da apici, niente due punti nei messaggi)
       - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
-      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "Conflict"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
-      - 'if [ -z "$TARGET_ENV" ]; then echo "Defaulting to DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
-      - echo "Target: $TARGET_ENV"
+      
+      # Logica PROD
+      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR - STOP"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
+      
+      # Default (fallback)
+      - 'if [ -z "$TARGET_ENV" ]; then echo "NO CHANGES DETECTED - USING DEV DEFAULT"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      
+      - echo "Selected Target is $TARGET_ENV"
       - cd "$WORKDIR"
-      - echo "=== FASE 3: INIT & VALIDATE ==="
+      
+      - echo "INIT AND VALIDATE PHASE"
       - terraform init -input=false
       - terraform validate
 
   build:
     commands:
-      - echo "=== FASE 4: PLAN ==="
+      - echo "PLANNING PHASE"
       - terraform plan -input=false -out=tfplan
 
   post_build:
     commands:
-      - echo "=== FASE 5: APPLY AUTOMATICO ==="
+      - echo "APPLY PHASE"
       - terraform apply -input=false -auto-approve tfplan
 
 artifacts:
