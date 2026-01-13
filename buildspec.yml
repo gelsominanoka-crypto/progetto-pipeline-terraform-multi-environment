@@ -5,45 +5,50 @@ env:
   variables:
     DEV_DIR: "Infrastructure/Environments/Dev"
     PROD_DIR: "Infrastructure/Environments/Prod"
-    PIPELINE_ACTION: "plan"
+    # Nota: Ho rimosso PIPELINE_ACTION perché ora faremo sempre tutto.
 
 phases:
   install:
     commands:
-      - echo "Setup Terraform..."
-      # Ho messo gli apici all'inizio e alla fine di questo blocco lungo
+      - echo "=== FASE 1: INSTALLAZIONE ==="
+      # Installazione sicura di Terraform
       - 'if ! command -v terraform >/dev/null; then sudo yum install -y unzip >/dev/null 2>&1 || true; curl -sLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION:-1.9.5}/terraform_${TF_VERSION:-1.9.5}_linux_amd64.zip"; unzip -o /tmp/terraform.zip -d /usr/local/bin; fi'
       - terraform -version
 
   pre_build:
     commands:
-      - echo "Detecting changed paths..."
+      - echo "=== FASE 2: RILEVAMENTO AMBIENTE ==="
       - git fetch --depth=2 origin main || true
       - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
-      - echo "$CHANGED"
+      - echo "File modificati: $CHANGED"
       - TARGET_ENV=""
       - WORKDIR=""
       
-      # QUESTE SONO LE RIGHE CHE DAVANO ERRORE. ORA SONO PROTETTE DA APICI SINGOLI '...'
+      # Logica intelligente: Capisce se lavorare su DEV o PROD in base alla cartella toccata
       - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
-      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "Conflict. Failing."; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
-      - 'if [ -z "$TARGET_ENV" ]; then echo "WARNING: No changes detected. Forcing DEV for testing."; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "ERRORE: Hai modificato sia Dev che Prod insieme. Stop."; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
       
-      - echo "Target env -> $TARGET_ENV"
+      # Se non rileva modifiche specifiche, usa DEV per default (utile per i test)
+      - 'if [ -z "$TARGET_ENV" ]; then echo "WARNING: Nessuna modifica specifica rilevata. Uso DEV come default."; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      
+      - echo "Ambiente Target -> $TARGET_ENV"
       - cd "$WORKDIR"
+      
+      - echo "=== FASE 3: INIT & VALIDATE ==="
       - terraform init -input=false
       - terraform validate
 
   build:
     commands:
-      - echo "Action -> $PIPELINE_ACTION"
-      # Anche qui proteggiamo con apici per sicurezza
-      - 'if [ "$PIPELINE_ACTION" = "plan" ]; then terraform plan -input=false -out=tfplan; else echo "Skipping plan"; fi'
+      - echo "=== FASE 4: PLAN ==="
+      # Crea il piano e lo salva nel file 'tfplan'
+      - terraform plan -input=false -out=tfplan
 
   post_build:
     commands:
-      # Protezione con apici
-      - 'if [ "$PIPELINE_ACTION" = "apply" ]; then terraform apply -input=false -auto-approve tfplan || terraform apply -input=false -auto-approve; else echo "Apply not requested"; fi'
+      - echo "=== FASE 5: APPLY AUTOMATICO ==="
+      # Applica il piano generato sopra. Se il plan fallisce, questa riga non viene eseguita.
+      - terraform apply -input=false -auto-approve tfplan
 
 artifacts:
   files:
