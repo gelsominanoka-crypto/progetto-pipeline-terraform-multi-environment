@@ -29,22 +29,15 @@ phases:
       - CHANGED=$(git show --name-only --pretty="" HEAD || true)
       
       - echo "Files changed -> $CHANGED"
-      
-      - TARGET_ENV=""
-      - WORKDIR=""
+     
+      - DEV_CHANGED=false
+      - PROD_CHANGED=false
       
       # Logica DEV
-      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then export TARGET_ENV="dev"; export WORKDIR="$DEV_DIR"; fi'
+      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then export DEV_CHANGED="true"; fi'
       
       # Logica PROD
-     # - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
-      
-      # Default
-      #- 'if [ -z "$TARGET_ENV" ]; then echo "NO SPECIFIC ENV DETECTED - USING DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
-      
-      - echo "Selected Target is $TARGET_ENV"
-      - echo "Entering directory $WORKDIR"
-      - cd "$WORKDIR"
+      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then export PROD_CHANGED="true"; fi'
       
       - echo "INIT AND VALIDATE"
       - terraform init -input=false
@@ -52,8 +45,8 @@ phases:
 
   build:
     commands:
-      - echo "Selected Target is $TARGET_ENV"
-      - echo "Entering directory $WORKDIR"
+      - echo " DEV CHANGED = $DEV_CHANGED"
+      - echo " PROD CHANGED = $PROD_CHANGED"
       #- echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
      # - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
      # - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
