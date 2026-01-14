@@ -19,6 +19,13 @@ variable "instance_type" {
   default     = "t2.micro"
 }
 
+# Key Pair Name
+variable "key_pair_name" {
+  description = "Name of the AWS Key Pair for EC2 access"
+  type        = string
+  default     = "chuave-per-pipeline" 
+}
+
 # Allowed CIDR for SSH access
 variable "allowed_cidr" {
   description = "CIDR block allowed for SSH access"
