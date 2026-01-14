@@ -3,6 +3,8 @@ version: 0.2
 env:
   shell: bash
   variables:
+    # ATTENZIONE ALLE MAIUSCOLE/MINUSCOLE QUI SOTTO!
+    # Se la tua cartella su git è "dev" (minuscolo), scrivi "dev".
     DEV_DIR: "Infrastructure/Environments/Dev"
     PROD_DIR: "Infrastructure/Environments/Prod"
     TF_COMMAND: "plan"
@@ -18,10 +20,15 @@ phases:
 
   pre_build:
     commands:
+      - echo "DEBUGGING DIRECTORY STRUCTURE"
+      # Questo comando ci mostrerà nei log come sono scritte le cartelle (Maiuscole/Minuscole)
+      - find . -maxdepth 4 -not -path '*/.*'
+      
       - echo "CHECKING CHANGED FILES"
-      # ORA FUNZIONERA' PERCHE' ABBIAMO ABILITATO FULL CLONE
-      - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
-      - echo "Files changed $CHANGED"
+      # FIX: Usiamo 'git show' invece di diff. Guarda solo il commit attuale. Molto più solido.
+      - CHANGED=$(git show --name-only --pretty="" HEAD || true)
+      
+      - echo "Files changed -> $CHANGED"
       
       - TARGET_ENV=""
       - WORKDIR=""
@@ -36,7 +43,9 @@ phases:
       - 'if [ -z "$TARGET_ENV" ]; then echo "NO SPECIFIC ENV DETECTED - USING DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
       - echo "Selected Target is $TARGET_ENV"
+      - echo "Entering directory $WORKDIR"
       - cd "$WORKDIR"
+      
       - echo "INIT AND VALIDATE"
       - terraform init -input=false
       - terraform validate
