@@ -38,15 +38,11 @@ phases:
       
       # Logica PROD
       - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then export PROD_CHANGED="true"; fi'
-      
-      - echo "INIT AND VALIDATE"
-      - terraform init -input=false
-      - terraform validate
 
       - export PROJECT_PATH=$(pwd)
 
-      - 'if [ "$DEV_CHANGED" = "true" ]; then cd $PROJECT_PATH/$DEV_DIR; terraform plan -input=false -out=tfplan; fi'
-      - 'if [ "$PROD_CHANGED" = "true" ]; then cd $PROJECT_PATH/$PROD_DIR; terraform plan -input=false -out=tfplan; fi'
+      - 'if [ "$DEV_CHANGED" = "true" ]; then cd $PROJECT_PATH/$DEV_DIR; terraform init -input=false; terraform validate; terraform plan -input=false -out=tfplan; fi'
+      - 'if [ "$PROD_CHANGED" = "true" ]; then cd $PROJECT_PATH/$PROD_DIR; terraform init -input=false; terraform validate; terraform plan -input=false -out=tfplan; fi'
       
 
   build:
