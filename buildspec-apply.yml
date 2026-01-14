@@ -1,0 +1,48 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    DEV_DIR: "Infrastructure/Environments/Dev"
+    PROD_DIR: "Infrastructure/Environments/Prod"
+
+phases:
+  install:
+    commands:
+      - echo "INSTALLING TERRAFORM FOR APPLY PHASE"
+      # Nota: Se usi un'immagine Docker che ha già Terraform, puoi saltare questi step
+      - apt-get update && apt-get install -y unzip curl
+      - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
+      - unzip -o /tmp/terraform.zip -d /usr/local/bin
+
+  build:
+    commands:
+      - echo "APPLYING INFRASTRUCTURE CHANGES"
+      - export PROJECT_PATH=$(pwd)
+      
+      # LOGICA: Controlliamo se esiste il file 'tfplan' generato dallo step precedente.
+      # Nota: Affinché funzioni, devi configurare CodePipeline per passare gli "Artifacts" 
+      # dal primo build (Plan) a questo build (Apply).
+
+      # DEV
+      - |
+        if [ -f "$PROJECT_PATH/$DEV_DIR/tfplan" ]; then
+          echo "Found plan for DEV. Applying..."
+          cd $PROJECT_PATH/$DEV_DIR
+          # Re-inizializziamo (spesso necessario se non si passa la cartella .terraform completa)
+          terraform init -input=false
+          terraform apply -input=false -auto-approve tfplan
+        else
+          echo "No plan found for DEV. Skipping."
+        fi
+
+      # PROD
+      - |
+        if [ -f "$PROJECT_PATH/$PROD_DIR/tfplan" ]; then
+          echo "Found plan for PROD. Applying..."
+          cd $PROJECT_PATH/$PROD_DIR
+          terraform init -input=false
+          terraform apply -input=false -auto-approve tfplan
+        else
+          echo "No plan found for PROD. Skipping."
+        fi
