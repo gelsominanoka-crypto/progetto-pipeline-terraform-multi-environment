@@ -5,8 +5,8 @@ env:
   variables:
     # ATTENZIONE ALLE MAIUSCOLE/MINUSCOLE QUI SOTTO!
     # Se la tua cartella su git è "dev" (minuscolo), scrivi "dev".
-    DEV_DIR: "./Infrastructure/Environments/Dev"
-    PROD_DIR: "./Infrastructure/Environments/Prod"
+    DEV_DIR: "Infrastructure/Environments/Dev"
+    PROD_DIR: "Infrastructure/Environments/Prod"
     TF_COMMAND: "plan"
 
 phases:
@@ -34,7 +34,7 @@ phases:
       - WORKDIR=""
       
       # Logica DEV
-      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then export TARGET_ENV="dev"; export WORKDIR="$DEV_DIR"; fi'
       
       # Logica PROD
      # - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
