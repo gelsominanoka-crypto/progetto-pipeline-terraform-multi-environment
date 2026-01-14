@@ -43,6 +43,12 @@ phases:
       - terraform init -input=false
       - terraform validate
 
+      - export PROJECT_PATH=$(pwd)
+
+      - 'if [ "$DEV_CHANGED" = "true" ]; then cd $PROJECT_PATH/$DEV_DIR; terraform plan -input=false -out=tfplan; fi'
+      - 'if [ "$PROD_CHANGED" = "true" ]; then cd $PROJECT_PATH/$PROD_DIR; terraform plan -input=false -out=tfplan; fi'
+      
+
   build:
     commands:
       - echo " DEV CHANGED = $DEV_CHANGED"
