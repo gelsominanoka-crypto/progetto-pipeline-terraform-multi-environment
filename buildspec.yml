@@ -21,7 +21,7 @@ phases:
       - echo "CHECKING CHANGED FILES"
       # ORA FUNZIONERA' PERCHE' ABBIAMO ABILITATO FULL CLONE
       - CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
-      - echo "Files changed: $CHANGED"
+      - echo "Files changed $CHANGED"
       
       - TARGET_ENV=""
       - WORKDIR=""
