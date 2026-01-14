@@ -5,8 +5,8 @@ env:
   variables:
     # ATTENZIONE ALLE MAIUSCOLE/MINUSCOLE QUI SOTTO!
     # Se la tua cartella su git è "dev" (minuscolo), scrivi "dev".
-    DEV_DIR: "Infrastructure/Environments/Dev"
-    PROD_DIR: "Infrastructure/Environments/Prod"
+    DEV_DIR: "./Infrastructure/Environments/Dev"
+    PROD_DIR: "./Infrastructure/Environments/Prod"
     TF_COMMAND: "plan"
 
 phases:
@@ -37,10 +37,10 @@ phases:
       - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
       # Logica PROD
-      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
+     # - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then if [ -n "$TARGET_ENV" ]; then echo "CONFLICT ERROR"; exit 1; fi; TARGET_ENV="prod"; WORKDIR="$PROD_DIR"; fi'
       
       # Default
-      - 'if [ -z "$TARGET_ENV" ]; then echo "NO SPECIFIC ENV DETECTED - USING DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
+      #- 'if [ -z "$TARGET_ENV" ]; then echo "NO SPECIFIC ENV DETECTED - USING DEV"; TARGET_ENV="dev"; WORKDIR="$DEV_DIR"; fi'
       
       - echo "Selected Target is $TARGET_ENV"
       - echo "Entering directory $WORKDIR"
@@ -52,9 +52,11 @@ phases:
 
   build:
     commands:
-      - echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
-      - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
-      - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
+      - echo "Selected Target is $TARGET_ENV"
+      - echo "Entering directory $WORKDIR"
+      #- echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
+     # - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
+     # - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
 
 artifacts:
   files:
