@@ -101,7 +101,7 @@ resource "aws_instance" "main" {
   vpc_security_group_ids = [aws_security_group.ec2.id]
 
   tags = {
-    Name        = "${var.environment}-EC2"
+    Name        = "${var.environment}-EC2-PROD"
     Environment = var.environment
   }
 }
