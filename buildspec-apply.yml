@@ -9,40 +9,119 @@ env:
 phases:
   install:
     commands:
-      - echo "INSTALLING TERRAFORM FOR APPLY PHASE"
-      # Nota: Se usi un'immagine Docker che ha già Terraform, puoi saltare questi step
+      - echo "=== APPLY PHASE: Installing Terraform ==="
       - apt-get update && apt-get install -y unzip curl
       - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
       - unzip -o /tmp/terraform.zip -d /usr/local/bin
+      - terraform -version
+
+  pre_build:
+    commands:
+      - echo "=== Detecting which environment to apply ==="
+      - export PROJECT_PATH=$(pwd)
+      - echo "Current directory: $PROJECT_PATH"
+      - echo "Listing directory structure:"
+      - find . -type f -name "tfplan" 2>/dev/null || echo "No tfplan files found yet"
+      - ls -la || true
+      - |
+        # Verifica struttura directory
+        if [ -d "$DEV_DIR" ]; then
+          echo "✓ Dev directory exists"
+          ls -la "$DEV_DIR/" || true
+        else
+          echo "⚠ Dev directory not found at $DEV_DIR"
+        fi
+        if [ -d "$PROD_DIR" ]; then
+          echo "✓ Prod directory exists"
+          ls -la "$PROD_DIR/" || true
+        else
+          echo "⚠ Prod directory not found at $PROD_DIR"
+        fi
+      
+      - export DEV_PLAN_EXISTS=false
+      - export PROD_PLAN_EXISTS=false
+      
+      # Verifica se esiste il plan file per Dev
+      - |
+        if [ -f "$PROJECT_PATH/$DEV_DIR/tfplan" ]; then
+          export DEV_PLAN_EXISTS=true
+          echo "✓ Found Dev plan file at $PROJECT_PATH/$DEV_DIR/tfplan"
+          ls -lh "$PROJECT_PATH/$DEV_DIR/tfplan"
+        else
+          echo "✗ Dev plan file not found at $PROJECT_PATH/$DEV_DIR/tfplan"
+        fi
+      
+      # Verifica se esiste il plan file per Prod
+      - |
+        if [ -f "$PROJECT_PATH/$PROD_DIR/tfplan" ]; then
+          export PROD_PLAN_EXISTS=true
+          echo "✓ Found Prod plan file at $PROJECT_PATH/$PROD_DIR/tfplan"
+          ls -lh "$PROJECT_PATH/$PROD_DIR/tfplan"
+        else
+          echo "✗ Prod plan file not found at $PROJECT_PATH/$PROD_DIR/tfplan"
+        fi
+      
+      # Validazione: deve esistere almeno un plan
+      - |
+        if [ "$DEV_PLAN_EXISTS" = "false" ] && [ "$PROD_PLAN_EXISTS" = "false" ]; then
+          echo "ERROR: No plan file found for Dev or Prod!"
+          echo "Assicurati che lo stage Plan abbia generato il file tfplan"
+          echo "Searching for tfplan files in entire directory:"
+          find . -name "tfplan" -type f 2>/dev/null || echo "No tfplan files found"
+          exit 1
+        fi
+      
+      # Salva le variabili in un file per usarle nel phase build
+      - echo "DEV_PLAN_EXISTS=$DEV_PLAN_EXISTS" > /tmp/env_vars.txt
+      - echo "PROD_PLAN_EXISTS=$PROD_PLAN_EXISTS" >> /tmp/env_vars.txt
+      - echo "PROJECT_PATH=$PROJECT_PATH" >> /tmp/env_vars.txt
 
   build:
     commands:
-      - echo "APPLYING INFRASTRUCTURE CHANGES"
-      - export PROJECT_PATH=$(pwd)
+      - echo "=== Executing Terraform Apply ==="
+      # Carica le variabili dal file
+      - source /tmp/env_vars.txt
+      - echo "DEV_PLAN_EXISTS: $DEV_PLAN_EXISTS"
+      - echo "PROD_PLAN_EXISTS: $PROD_PLAN_EXISTS"
+      - echo "PROJECT_PATH: $PROJECT_PATH"
       
-      # LOGICA: Controlliamo se esiste il file 'tfplan' generato dallo step precedente.
-      # Nota: Affinché funzioni, devi configurare CodePipeline per passare gli "Artifacts" 
-      # dal primo build (Plan) a questo build (Apply).
-
-      # DEV
+      # Apply per Dev
       - |
-        if [ -f "$PROJECT_PATH/$DEV_DIR/tfplan" ]; then
-          echo "Found plan for DEV. Applying..."
-          cd $PROJECT_PATH/$DEV_DIR
-          # Re-inizializziamo (spesso necessario se non si passa la cartella .terraform completa)
+        if [ "$DEV_PLAN_EXISTS" = "true" ]; then
+          echo "--- Applying terraform changes for DEV ---"
+          cd "$PROJECT_PATH/$DEV_DIR" || exit 1
+          echo "Working directory: $(pwd)"
+          echo "Verifying tfplan file:"
+          ls -lh tfplan || exit 1
           terraform init -input=false
-          terraform apply -input=false -auto-approve tfplan
-        else
-          echo "No plan found for DEV. Skipping."
+          if [ -f "tfplan" ]; then
+            terraform apply -input=false -auto-approve tfplan
+          else
+            echo "WARNING: tfplan not found, running apply without plan file"
+            terraform apply -input=false -auto-approve
+          fi
+          echo "✓ Dev apply completed successfully"
+        fi
+      
+      # Apply per Prod
+      - |
+        if [ "$PROD_PLAN_EXISTS" = "true" ]; then
+          echo "--- Applying terraform changes for PROD ---"
+          cd "$PROJECT_PATH/$PROD_DIR" || exit 1
+          echo "Working directory: $(pwd)"
+          echo "Verifying tfplan file:"
+          ls -lh tfplan || exit 1
+          terraform init -input=false
+          if [ -f "tfplan" ]; then
+            terraform apply -input=false -auto-approve tfplan
+          else
+            echo "WARNING: tfplan not found, running apply without plan file"
+            terraform apply -input=false -auto-approve
+          fi
+          echo "✓ Prod apply completed successfully"
         fi
 
-      # PROD
-      - |
-        if [ -f "$PROJECT_PATH/$PROD_DIR/tfplan" ]; then
-          echo "Found plan for PROD. Applying..."
-          cd $PROJECT_PATH/$PROD_DIR
-          terraform init -input=false
-          terraform apply -input=false -auto-approve tfplan
-        else
-          echo "No plan found for PROD. Skipping."
-        fi
+  post_build:
+    commands:
+      - echo "=== Apply phase completed ==="
+      - echo "Infrastructure changes have been applied successfully"
