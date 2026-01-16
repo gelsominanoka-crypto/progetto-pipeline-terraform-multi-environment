@@ -60,11 +60,12 @@ phases:
           exit 1
         fi
       
-      # Validazione: almeno uno deve essere modificato
+      # Se non ci sono modifiche, continua comunque (non fallire)
       - |
         if [ "$DEV_CHANGED" = "false" ] && [ "$PROD_CHANGED" = "false" ]; then
-          echo "ERROR: No changes detected in Dev or Prod directories"
-          exit 1
+          echo "INFO: No changes detected in Dev or Prod directories"
+          echo "Pipeline will continue without executing terraform plan"
+          echo "This is normal if you modified only buildspec files or other non-infrastructure files"
         fi
       
       # Salva le variabili in un file per usarle nel phase build
@@ -80,6 +81,14 @@ phases:
       - echo "DEV_CHANGED $DEV_CHANGED"
       - echo "PROD_CHANGED $PROD_CHANGED"
       - echo "PROJECT_PATH $PROJECT_PATH"
+      
+      # Se non ci sono modifiche, esci senza errore
+      - |
+        if [ "$DEV_CHANGED" = "false" ] && [ "$PROD_CHANGED" = "false" ]; then
+          echo "No infrastructure changes detected. Skipping terraform plan."
+          echo "✓ Build phase completed (no changes to apply)"
+          exit 0
+        fi
       
       # Plan per Dev
       - |

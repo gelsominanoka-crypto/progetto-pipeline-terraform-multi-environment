@@ -61,14 +61,12 @@ phases:
           echo "✗ Prod plan file not found at $PROJECT_PATH/$PROD_DIR/tfplan"
         fi
       
-      # Validazione: deve esistere almeno un plan
+      # Se non c'è un plan, significa che non ci sono state modifiche - continua senza errore
       - |
         if [ "$DEV_PLAN_EXISTS" = "false" ] && [ "$PROD_PLAN_EXISTS" = "false" ]; then
-          echo "ERROR: No plan file found for Dev or Prod!"
-          echo "Assicurati che lo stage Plan abbia generato il file tfplan"
-          echo "Searching for tfplan files in entire directory:"
-          find . -name "tfplan" -type f 2>/dev/null || echo "No tfplan files found"
-          exit 1
+          echo "INFO: No plan file found for Dev or Prod"
+          echo "This is normal if no infrastructure changes were detected in the Plan stage"
+          echo "Pipeline will complete successfully without applying changes"
         fi
       
       # Salva le variabili in un file per usarle nel phase build
@@ -84,6 +82,14 @@ phases:
       - echo "DEV_PLAN_EXISTS: $DEV_PLAN_EXISTS"
       - echo "PROD_PLAN_EXISTS: $PROD_PLAN_EXISTS"
       - echo "PROJECT_PATH: $PROJECT_PATH"
+      
+      # Se non c'è un plan, esci senza errore
+      - |
+        if [ "$DEV_PLAN_EXISTS" = "false" ] && [ "$PROD_PLAN_EXISTS" = "false" ]; then
+          echo "No plan file found. Skipping terraform apply."
+          echo "✓ Apply phase completed (no changes to apply)"
+          exit 0
+        fi
       
       # Apply per Dev
       - |
