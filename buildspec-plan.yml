@@ -3,123 +3,57 @@ version: 0.2
 env:
   shell: bash
   variables:
+    # ATTENZIONE ALLE MAIUSCOLE/MINUSCOLE QUI SOTTO!
+    # Se la tua cartella su git è "dev" (minuscolo), scrivi "dev".
     DEV_DIR: "Infrastructure/Environments/Dev"
     PROD_DIR: "Infrastructure/Environments/Prod"
+    TF_COMMAND: "plan"
 
 phases:
   install:
     commands:
-      - echo "=== PLAN PHASE Installing Terraform ==="
+      - echo "START INSTALLATION PHASE"
       - apt-get update && apt-get install -y unzip curl
       - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
       - unzip -o /tmp/terraform.zip -d /usr/local/bin
       - terraform -version
-      - git --version
 
   pre_build:
     commands:
-      - echo "=== Detecting changed files ==="
+      - echo "DEBUGGING DIRECTORY STRUCTURE"
+      # Questo comando ci mostrerà nei log come sono scritte le cartelle (Maiuscole/Minuscole)
+      - find . -maxdepth 4 -not -path '*/.*'
+      
+      - echo "CHECKING CHANGED FILES"
+      # FIX: Usiamo 'git show' invece di diff. Guarda solo il commit attuale. Molto più solido.
+      - CHANGED=$(git show --name-only --pretty="" HEAD || true)
+      
+      - echo "Files changed -> $CHANGED"
+     
+      - DEV_CHANGED=false
+      - PROD_CHANGED=false
+      
+      # Logica DEV
+      - 'if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then export DEV_CHANGED="true"; fi'
+      
+      # Logica PROD
+      - 'if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then export PROD_CHANGED="true"; fi'
+
       - export PROJECT_PATH=$(pwd)
-      - echo "Current directory $PROJECT_PATH"
-      - echo "Listing directory structure:"
-      - ls -la || true
-      - |
-        # Prova a fare fetch e diff, con fallback per primo commit
-        git fetch --depth=2 origin main || true
-        if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-          CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
-        else
-          # Primo commit: usa tutti i file modificati nel commit corrente
-          CHANGED=$(git show --name-only --pretty="" HEAD || git diff --name-only HEAD || true)
-        fi
-        echo "Files changed: $CHANGED"
-        export CHANGED
+
+      - 'if [ "$DEV_CHANGED" = "true" ]; then cd $PROJECT_PATH/$DEV_DIR; terraform init -input=false; terraform validate; terraform plan -input=false -out=tfplan; fi'
+      - 'if [ "$PROD_CHANGED" = "true" ]; then cd $PROJECT_PATH/$PROD_DIR; terraform init -input=false; terraform validate; terraform plan -input=false -out=tfplan; fi'
       
-      - export DEV_CHANGED=false
-      - export PROD_CHANGED=false
-      
-      # Rileva modifiche in Dev
-      - |
-        if echo "$CHANGED" | grep -q "^${DEV_DIR}/"; then
-          export DEV_CHANGED=true
-          echo "✓ Dev directory changed"
-        fi
-      
-      # Rileva modifiche in Prod
-      - |
-        if echo "$CHANGED" | grep -q "^${PROD_DIR}/"; then
-          export PROD_CHANGED=true
-          echo "✓ Prod directory changed"
-        fi
-      
-      # Validazione: non permettere modifiche a entrambi
-      - |
-        if [ "$DEV_CHANGED" = "true" ] && [ "$PROD_CHANGED" = "true" ]; then
-          echo "ERROR: Both Dev and Prod directories were modified!"
-          echo "Modifica solo Dev OPPURE solo Prod, non entrambi."
-          exit 1
-        fi
-      
-      # Se non ci sono modifiche, continua comunque (non fallire)
-      - |
-        if [ "$DEV_CHANGED" = "false" ] && [ "$PROD_CHANGED" = "false" ]; then
-          echo "INFO: No changes detected in Dev or Prod directories"
-          echo "Pipeline will continue without executing terraform plan"
-          echo "This is normal if you modified only buildspec files or other non-infrastructure files"
-        fi
-      
-      # Salva le variabili in un file per usarle nel phase build
-      - echo "DEV_CHANGED=$DEV_CHANGED" > /tmp/env_vars.txt
-      - echo "PROD_CHANGED=$PROD_CHANGED" >> /tmp/env_vars.txt
-      - echo "PROJECT_PATH=$PROJECT_PATH" >> /tmp/env_vars.txt
 
   build:
     commands:
-      - echo "=== Executing Terraform Plan ==="
-      # Carica le variabili dal file
-      - source /tmp/env_vars.txt
-      - echo "DEV_CHANGED $DEV_CHANGED"
-      - echo "PROD_CHANGED $PROD_CHANGED"
-      - echo "PROJECT_PATH $PROJECT_PATH"
-      
-      # Se non ci sono modifiche, esci senza errore
-      - |
-        if [ "$DEV_CHANGED" = "false" ] && [ "$PROD_CHANGED" = "false" ]; then
-          echo "No infrastructure changes detected. Skipping terraform plan."
-          echo "✓ Build phase completed (no changes to apply)"
-          exit 0
-        fi
-      
-      # Plan per Dev
-      - |
-        if [ "$DEV_CHANGED" = "true" ]; then
-          echo "--- Running terraform plan for DEV ---"
-          cd "$PROJECT_PATH/$DEV_DIR" || exit 1
-          echo "Working directory: $(pwd)"
-          terraform init -input=false
-          terraform validate
-          terraform plan -input=false -out=tfplan
-          echo "✓ Dev plan completed successfully"
-          echo "Verifying tfplan file exists:"
-          ls -lh tfplan || echo "WARNING: tfplan file not found!"
-        fi
-      
-      # Plan per Prod
-      - |
-        if [ "$PROD_CHANGED" = "true" ]; then
-          echo "--- Running terraform plan for PROD ---"
-          cd "$PROJECT_PATH/$PROD_DIR" || exit 1
-          echo "Working directory: $(pwd)"
-          terraform init -input=false
-          terraform validate
-          terraform plan -input=false -out=tfplan
-          echo "✓ Prod plan completed successfully"
-          echo "Verifying tfplan file exists:"
-          ls -lh tfplan || echo "WARNING: tfplan file not found!"
-        fi
+      - echo " DEV CHANGED = $DEV_CHANGED"
+      - echo " PROD CHANGED = $PROD_CHANGED"
+      #- echo "EXECUTING TERRAFORM ACTION $TF_COMMAND"
+     # - 'if [ "$TF_COMMAND" = "plan" ]; then terraform plan -input=false -out=tfplan; fi'
+     # - 'if [ "$TF_COMMAND" = "apply" ]; then terraform apply -input=false -auto-approve tfplan; fi'
 
 artifacts:
   files:
     - '**/*'
   enable-symlinks: yes
-  name: plan-artifacts
