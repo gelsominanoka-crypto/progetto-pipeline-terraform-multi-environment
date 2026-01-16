@@ -9,7 +9,7 @@ env:
 phases:
   install:
     commands:
-      - echo "=== PLAN PHASE: Installing Terraform ==="
+      - echo "=== PLAN PHASE Installing Terraform ==="
       - apt-get update && apt-get install -y unzip curl
       - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
       - unzip -o /tmp/terraform.zip -d /usr/local/bin
@@ -20,7 +20,7 @@ phases:
     commands:
       - echo "=== Detecting changed files ==="
       - export PROJECT_PATH=$(pwd)
-      - echo "Current directory: $PROJECT_PATH"
+      - echo "Current directory $PROJECT_PATH"
       - echo "Listing directory structure:"
       - ls -la || true
       - |
@@ -77,9 +77,9 @@ phases:
       - echo "=== Executing Terraform Plan ==="
       # Carica le variabili dal file
       - source /tmp/env_vars.txt
-      - echo "DEV_CHANGED: $DEV_CHANGED"
-      - echo "PROD_CHANGED: $PROD_CHANGED"
-      - echo "PROJECT_PATH: $PROJECT_PATH"
+      - echo "DEV_CHANGED $DEV_CHANGED"
+      - echo "PROD_CHANGED $PROD_CHANGED"
+      - echo "PROJECT_PATH $PROJECT_PATH"
       
       # Plan per Dev
       - |
